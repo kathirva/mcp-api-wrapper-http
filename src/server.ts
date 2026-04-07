@@ -54,12 +54,13 @@ async function startServer() {
 
   app.post("/mcp", async (req, res) => {
     try {
-      await transport.handleRequest(req, res, req.body);
-    } catch (error) {
+      await transport.handleRequest(req, res);
+    } catch (error: unknown) {
       console.error("MCP request error:", error);
       if (!res.headersSent) {
         res.status(500).json({
-          error: error instanceof Error ? error.message : "Internal Server Error",
+          error:
+            error instanceof Error ? error.message : "Internal Server Error",
         });
       }
     }

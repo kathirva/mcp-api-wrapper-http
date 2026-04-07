@@ -10,6 +10,108 @@ This project is a Model Context Protocol (MCP) server that wraps external APIs a
 - Filtered responses to reduce noise
 - JWT-protected secure tool
 
+## Live Demo (Deployed on Render)
+
+# MCP API Wrapper Server
+
+🚀 Live: https://mcp-api-wrapper-http.onrender.com
+
+Base URL:
+https://mcp-api-wrapper-http.onrender.com
+
+Health Check:
+
+```bash
+curl https://mcp-api-wrapper-http.onrender.com/health
+```
+
+MCP Endpoint:
+POST https://mcp-api-wrapper-http.onrender.com/mcp
+
+### List tools (remote)
+
+```bash
+curl -i -N -X POST https://mcp-api-wrapper-http.onrender.com/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/list"
+  }'
+```
+
+### Call `get_user` (remote)
+
+```bash
+curl -i -N -X POST https://mcp-api-wrapper-http.onrender.com/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/call",
+    "params": {
+      "name": "get_user",
+      "arguments": {
+        "userId": 1
+      }
+    }
+  }'
+```
+
+### Call `get_posts_by_user` (remote)
+
+```bash
+curl -i -N -X POST https://mcp-api-wrapper-http.onrender.com/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 3,
+    "method": "tools/call",
+    "params": {
+      "name": "get_posts_by_user",
+      "arguments": {
+        "userId": 1
+      }
+    }
+  }'
+```
+
+### Call `get_secure_data` (remote)
+
+Generate a token locally:
+
+```bash
+export JWT_SECRET="my-secret-key"
+node --input-type=module -e "import jwt from 'jsonwebtoken'; console.log(jwt.sign({ userId: 1, role: 'admin' }, process.env.JWT_SECRET || 'my-secret-key', { expiresIn: '1h' }));"
+```
+
+Use the token:
+
+```bash
+curl -i -N -X POST https://mcp-api-wrapper-http.onrender.com/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d "{
+    \"jsonrpc\": \"2.0\",
+    \"id\": 4,
+    \"method\": \"tools/call\",
+    \"params\": {
+      \"name\": \"get_secure_data\",
+      \"arguments\": {
+        \"token\": \"<PASTE_TOKEN>\"
+      }
+    }
+  }"
+```
+
+Notes:
+
+- The service may take 10–30 seconds to respond on first request due to free tier cold start.
+- Responses are Server-Sent Events (SSE). Use `-N` in curl to disable buffering.
+
 ## Available Tools
 
 ### `get_user`
@@ -336,6 +438,18 @@ Add this to your MCP config (`mcp.json`):
   "api-wrapper": {
     "command": "node",
     "args": ["path-to/dist/server.js"]
+  }
+}
+```
+
+### Using remote MCP (HTTP)
+
+Some clients can connect to a remote MCP server over HTTP. Use:
+
+```json
+{
+  "api-wrapper": {
+    "url": "https://mcp-api-wrapper-http.onrender.com/mcp"
   }
 }
 ```
