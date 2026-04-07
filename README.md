@@ -1,0 +1,351 @@
+# MCP API Wrapper Server
+
+This project is a Model Context Protocol (MCP) server that wraps external APIs and exposes them as structured tools for AI agents.
+
+## Features
+
+- MCP server over HTTP (`/mcp`)
+- JSONPlaceholder API integration
+- Tool schemas defined with Zod
+- Filtered responses to reduce noise
+- JWT-protected secure tool
+
+## Available Tools
+
+### `get_user`
+
+Fetch user details by id.
+
+Input:
+
+```json
+{
+  "userId": 1
+}
+```
+
+Output:
+
+```json
+{
+  "id": 1,
+  "name": "Leanne Graham",
+  "email": "leanne@example.com"
+}
+```
+
+### `get_posts_by_user`
+
+Fetch a limited list of posts for a user.
+
+Input:
+
+```json
+{
+  "userId": 1
+}
+```
+
+Output:
+
+```json
+[
+  {
+    "id": 1,
+    "title": "Post title"
+  }
+]
+```
+
+### `get_secure_data`
+
+Fetch protected data using a JWT token.
+
+Input:
+
+```json
+{
+  "token": "<jwt-token>"
+}
+```
+
+Output (valid token):
+
+```json
+{
+  "message": "Access granted",
+  "user": {
+    "userId": 1,
+    "role": "admin"
+  },
+  "data": "Sensitive information here"
+}
+```
+
+Output (invalid token):
+
+```text
+Unauthorized: Invalid or expired token
+```
+
+## Setup
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Run in development:
+
+```bash
+npm run dev
+```
+
+Build for production:
+
+```bash
+npm run build
+```
+
+Run built server:
+
+```bash
+npm start
+```
+
+## Test Locally (HTTP)
+
+### 1. Start the server
+
+```bash
+npm run dev
+```
+
+Server should start on:
+
+```
+http://localhost:3000
+```
+
+---
+
+### 2. Verify health endpoint
+
+```bash
+curl http://localhost:3000/health
+```
+
+Expected:
+
+```json
+{ "status": "ok" }
+```
+
+---
+
+### 3. List available MCP tools
+
+```bash
+curl -i -N -X POST http://localhost:3000/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/list"
+  }'
+```
+
+Expected:
+
+- HTTP 200 response
+- `content-type: text/event-stream`
+- Output containing:
+  - `get_user`
+  - `get_posts_by_user`
+  - `get_secure_data`
+
+Note:
+
+- Response is in SSE format (`event: message`, `data: ...`)
+- Use `-N` flag in curl to disable buffering
+
+---
+
+### 4. Call `get_user`
+
+```bash
+curl -i -N -X POST http://localhost:3000/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/call",
+    "params": {
+      "name": "get_user",
+      "arguments": {
+        "userId": 1
+      }
+    }
+  }'
+```
+
+Expected:
+
+- Returns user data (id, name, email)
+
+---
+
+### 5. Call `get_posts_by_user`
+
+```bash
+curl -i -N -X POST http://localhost:3000/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 3,
+    "method": "tools/call",
+    "params": {
+      "name": "get_posts_by_user",
+      "arguments": {
+        "userId": 1
+      }
+    }
+  }'
+```
+
+Expected:
+
+- Returns list of posts (id + title)
+
+---
+
+### 6. Test `get_secure_data` (JWT)
+
+Set secret (optional, defaults to `my-secret-key`):
+
+```bash
+export JWT_SECRET="my-secret-key"
+```
+
+Generate token:
+
+```bash
+node --input-type=module -e "import jwt from 'jsonwebtoken'; console.log(jwt.sign({ userId: 1, role: 'admin' }, process.env.JWT_SECRET || 'my-secret-key', { expiresIn: '1h' }));"
+```
+
+Use token:
+
+```bash
+curl -i -N -X POST http://localhost:3000/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d "{
+    \"jsonrpc\": \"2.0\",
+    \"id\": 4,
+    \"method\": \"tools/call\",
+    \"params\": {
+      \"name\": \"get_secure_data\",
+      \"arguments\": {
+        \"token\": \"<PASTE_TOKEN>\"
+      }
+    }
+  }"
+```
+
+Expected:
+
+- Valid token → access granted
+- Invalid token → unauthorized error
+
+---
+
+### Troubleshooting
+
+- If no response is shown, ensure:
+  - server is running
+  - correct port (`3000`)
+  - `-N` flag is used in curl
+- Always include header:
+  ```
+  Accept: application/json, text/event-stream
+  ```
+- Restart server after code changes
+
+## Test in Cursor
+
+1. Build and reload MCP:
+   - Run `npm run build`
+   - Reload Cursor MCP servers
+2. Ensure your MCP server is connected.
+
+### Test `get_user`
+
+Prompt:
+
+```text
+Get user with id 1
+```
+
+Expected: returns `id`, `name`, and `email`.
+
+### Test `get_posts_by_user`
+
+Prompt:
+
+```text
+Get posts for user 1
+```
+
+Expected: returns a limited list with `id` and `title`.
+
+### Test `get_secure_data`
+
+Set secret (optional, defaults to `my-secret-key`):
+
+```bash
+export JWT_SECRET="my-secret-key"
+```
+
+Generate token:
+
+```bash
+node --input-type=module -e "import jwt from 'jsonwebtoken'; console.log(jwt.sign({ userId: 1, role: 'admin' }, process.env.JWT_SECRET || 'my-secret-key', { expiresIn: '1h' }));"
+```
+
+Prompt:
+
+```text
+Call get_secure_data with token <PASTE_TOKEN>
+```
+
+Expected:
+
+- valid token -> access granted with decoded user payload
+- invalid/expired token -> unauthorized error
+
+## MCP Configuration (Cursor)
+
+Add this to your MCP config (`mcp.json`):
+
+```json
+{
+  "api-wrapper": {
+    "command": "node",
+    "args": ["path-to/dist/server.js"]
+  }
+}
+```
+
+## Project Structure
+
+```text
+src/
+  server.ts
+  tools/
+  services/
+  utils/
+```
