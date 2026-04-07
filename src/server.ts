@@ -1,3 +1,4 @@
+import http from "http";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import express from "express";
@@ -51,23 +52,38 @@ async function startServer() {
   const transport = new StreamableHTTPServerTransport();
   await server.connect(transport as Parameters<typeof server.connect>[0]);
 
-  app.post("/mcp", async (req, res) => {
-    try {
-      await transport.handleRequest(req, res);
-    } catch (error: unknown) {
-      console.error("MCP request error:", error);
-      if (!res.headersSent) {
-        res.status(500).json({
-          error:
-            error instanceof Error ? error.message : "Internal Server Error",
-        });
-      }
-    }
-  });
-
   const PORT = process.env.PORT || 3000;
 
-  app.listen(PORT, () => {
+  const serverHttp = http.createServer((req, res) => {
+    if (req.url === "/health" && req.method === "GET") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ status: "ok" }));
+      return;
+    }
+
+    if (req.url === "/mcp" && req.method === "POST") {
+      transport.handleRequest(req, res).catch((error: unknown) => {
+        console.error("MCP request error:", error);
+        if (!res.headersSent) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Internal Server Error",
+            })
+          );
+        }
+      });
+      return;
+    }
+
+    res.writeHead(404);
+    res.end();
+  });
+
+  serverHttp.listen(PORT, () => {
     console.log(`MCP HTTP server running on port ${PORT}`);
   });
 }
