@@ -12,8 +12,6 @@ This project is a Model Context Protocol (MCP) server that wraps external APIs a
 
 ## Live Demo (Deployed on Render)
 
-# MCP API Wrapper Server
-
 🚀 Live: https://mcp-api-wrapper-http.onrender.com
 
 Base URL:
@@ -28,7 +26,7 @@ curl https://mcp-api-wrapper-http.onrender.com/health
 MCP Endpoint:
 POST https://mcp-api-wrapper-http.onrender.com/mcp
 
-### List tools (remote)
+### Initialize MCP session (remote)
 
 ```bash
 curl -i -N -X POST https://mcp-api-wrapper-http.onrender.com/mcp \
@@ -37,19 +35,48 @@ curl -i -N -X POST https://mcp-api-wrapper-http.onrender.com/mcp \
   -d '{
     "jsonrpc": "2.0",
     "id": 1,
+    "method": "initialize",
+    "params": {
+      "protocolVersion": "2025-03-26",
+      "capabilities": {},
+      "clientInfo": {
+        "name": "curl-client",
+        "version": "1.0.0"
+      }
+    }
+  }'
+```
+
+Copy `Mcp-Session-Id` from response headers and reuse it below.
+
+### List tools (remote, session required)
+
+```bash
+SESSION_ID="<PASTE_SESSION_ID>"
+
+curl -i -N -X POST https://mcp-api-wrapper-http.onrender.com/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "Mcp-Session-Id: $SESSION_ID" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 2,
     "method": "tools/list"
   }'
 ```
 
-### Call `get_user` (remote)
+### Call `get_user` (remote, session required)
 
 ```bash
+SESSION_ID="<PASTE_SESSION_ID>"
+
 curl -i -N -X POST https://mcp-api-wrapper-http.onrender.com/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
+  -H "Mcp-Session-Id: $SESSION_ID" \
   -d '{
     "jsonrpc": "2.0",
-    "id": 2,
+    "id": 3,
     "method": "tools/call",
     "params": {
       "name": "get_user",
@@ -60,15 +87,18 @@ curl -i -N -X POST https://mcp-api-wrapper-http.onrender.com/mcp \
   }'
 ```
 
-### Call `get_posts_by_user` (remote)
+### Call `get_posts_by_user` (remote, session required)
 
 ```bash
+SESSION_ID="<PASTE_SESSION_ID>"
+
 curl -i -N -X POST https://mcp-api-wrapper-http.onrender.com/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
+  -H "Mcp-Session-Id: $SESSION_ID" \
   -d '{
     "jsonrpc": "2.0",
-    "id": 3,
+    "id": 4,
     "method": "tools/call",
     "params": {
       "name": "get_posts_by_user",
@@ -79,7 +109,7 @@ curl -i -N -X POST https://mcp-api-wrapper-http.onrender.com/mcp \
   }'
 ```
 
-### Call `get_secure_data` (remote)
+### Call `get_secure_data` (remote, session required)
 
 Generate a token locally:
 
@@ -91,12 +121,15 @@ node --input-type=module -e "import jwt from 'jsonwebtoken'; console.log(jwt.sig
 Use the token:
 
 ```bash
+SESSION_ID="<PASTE_SESSION_ID>"
+
 curl -i -N -X POST https://mcp-api-wrapper-http.onrender.com/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
+  -H "Mcp-Session-Id: $SESSION_ID" \
   -d "{
     \"jsonrpc\": \"2.0\",
-    \"id\": 4,
+    \"id\": 5,
     \"method\": \"tools/call\",
     \"params\": {
       \"name\": \"get_secure_data\",
@@ -111,6 +144,7 @@ Notes:
 
 - The service may take 10–30 seconds to respond on first request due to free tier cold start.
 - Responses are Server-Sent Events (SSE). Use `-N` in curl to disable buffering.
+- This server is session-based. Send `initialize` first and include `Mcp-Session-Id` in follow-up requests.
 
 ## Available Tools
 
@@ -132,7 +166,7 @@ Output:
 {
   "id": 1,
   "name": "Leanne Graham",
-  "email": "leanne@example.com"
+  "email": "Sincere@april.biz"
 }
 ```
 
@@ -255,7 +289,15 @@ curl -i -N -X POST http://localhost:3000/mcp \
   -d '{
     "jsonrpc": "2.0",
     "id": 1,
-    "method": "tools/list"
+    "method": "initialize",
+    "params": {
+      "protocolVersion": "2025-03-26",
+      "capabilities": {},
+      "clientInfo": {
+        "name": "curl-local",
+        "version": "1.0.0"
+      }
+    }
   }'
 ```
 
@@ -263,10 +305,7 @@ Expected:
 
 - HTTP 200 response
 - `content-type: text/event-stream`
-- Output containing:
-  - `get_user`
-  - `get_posts_by_user`
-  - `get_secure_data`
+- Response header contains `Mcp-Session-Id`
 
 Note:
 
@@ -278,9 +317,12 @@ Note:
 ### 4. Call `get_user`
 
 ```bash
+SESSION_ID="<PASTE_SESSION_ID>"
+
 curl -i -N -X POST http://localhost:3000/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
+  -H "Mcp-Session-Id: $SESSION_ID" \
   -d '{
     "jsonrpc": "2.0",
     "id": 2,
@@ -303,9 +345,12 @@ Expected:
 ### 5. Call `get_posts_by_user`
 
 ```bash
+SESSION_ID="<PASTE_SESSION_ID>"
+
 curl -i -N -X POST http://localhost:3000/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
+  -H "Mcp-Session-Id: $SESSION_ID" \
   -d '{
     "jsonrpc": "2.0",
     "id": 3,
@@ -342,9 +387,12 @@ node --input-type=module -e "import jwt from 'jsonwebtoken'; console.log(jwt.sig
 Use token:
 
 ```bash
+SESSION_ID="<PASTE_SESSION_ID>"
+
 curl -i -N -X POST http://localhost:3000/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
+  -H "Mcp-Session-Id: $SESSION_ID" \
   -d "{
     \"jsonrpc\": \"2.0\",
     \"id\": 4,
@@ -374,6 +422,10 @@ Expected:
 - Always include header:
   ```
   Accept: application/json, text/event-stream
+  ```
+- For tool calls, also include:
+  ```
+  Mcp-Session-Id: <SESSION_ID_FROM_INITIALIZE>
   ```
 - Restart server after code changes
 
@@ -435,7 +487,7 @@ Add this to your MCP config (`mcp.json`):
 
 ```json
 {
-  "api-wrapper": {
+  "api-wrapper-http": {
     "command": "node",
     "args": ["path-to/dist/server.js"]
   }
@@ -448,7 +500,7 @@ Some clients can connect to a remote MCP server over HTTP. Use:
 
 ```json
 {
-  "api-wrapper": {
+  "api-wrapper-http": {
     "url": "https://mcp-api-wrapper-http.onrender.com/mcp"
   }
 }
